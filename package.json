@@ -1,11 +1,11 @@
 {
-  "name": "signalk-sonos-fusion-plugin",
+  "name": "@waterwanders/signalk-sonos-fusion",
   "version": "1.0.0",
   "description": "SignalK plugin to integrate Sonos Port with Fusion Audio amplifiers for seamless marine audio control",
   "main": "index.js",
   "keywords": [
     "signalk",
-    "signalk-plugin",
+    "signalk-node-server-plugin",
     "sonos",
     "fusion",
     "marine",
