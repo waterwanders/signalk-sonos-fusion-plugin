@@ -3,6 +3,7 @@ const { FusionController } = require('./lib/fusionController');
 const { SonosController } = require('./lib/sonosController');
 const { NMEA2000Handler } = require('./lib/nmea2000Handler');
 const EventEmitter = require('eventemitter3');
+const os = require('os');
 
 module.exports = function(app) {
   const plugin = {};
@@ -361,24 +362,107 @@ module.exports = function(app) {
         const diagnostics = {
           plugin: {
             status: deviceManager !== null ? 'running' : 'stopped',
-            version: '1.0.0'
+            version: '1.0.0',
+            uptime: process.uptime(),
+            nodeVersion: process.version,
+            platform: process.platform
           },
           deviceManager: deviceManager ? deviceManager.getDiagnostics() : null,
           controllers: {
             sonos: {
               started: sonosController !== null,
-              deviceCount: sonosController ? sonosController.getAvailableDevices().length : 0
+              deviceCount: sonosController ? sonosController.getAvailableDevices().length : 0,
+              devices: sonosController ? sonosController.getAvailableDevices() : []
             },
             fusion: {
               started: fusionController !== null,
-              deviceCount: fusionController ? fusionController.getAvailableDevices().length : 0
+              deviceCount: fusionController ? fusionController.getAvailableDevices().length : 0,
+              devices: fusionController ? fusionController.getAvailableDevices() : []
             },
             nmea2000: {
               enabled: nmea2000Handler !== null
             }
-          }
+          },
+          network: getNetworkDiagnostics()
         };
         res.json(diagnostics);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Additional diagnostic endpoints
+    router.get('/diagnostics/sonos', (req, res) => {
+      try {
+        if (!sonosController) {
+          return res.status(503).json({ error: 'Sonos controller not started' });
+        }
+
+        sonosController.logDiscoveryDiagnostics();
+        res.json({
+          message: 'Sonos diagnostics logged to console',
+          devices: sonosController.getAvailableDevices()
+        });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    router.get('/diagnostics/fusion', (req, res) => {
+      try {
+        if (!fusionController) {
+          return res.status(503).json({ error: 'Fusion controller not started' });
+        }
+
+        fusionController.logDiscoveryDiagnostics();
+        res.json({
+          message: 'Fusion diagnostics logged to console',
+          devices: fusionController.getAvailableDevices()
+        });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    router.post('/diagnostics/rediscover', async (req, res) => {
+      try {
+        app.debug('Manual rediscovery requested');
+
+        const results = {
+          sonos: { success: false, error: null, devices: [] },
+          fusion: { success: false, error: null, devices: [] }
+        };
+
+        // Restart Sonos discovery
+        if (sonosController) {
+          try {
+            app.debug('Restarting Sonos discovery...');
+            sonosController.stop();
+            await sonosController.start();
+            results.sonos.success = true;
+            results.sonos.devices = sonosController.getAvailableDevices();
+          } catch (error) {
+            results.sonos.error = error.message;
+          }
+        }
+
+        // Restart Fusion discovery
+        if (fusionController) {
+          try {
+            app.debug('Restarting Fusion discovery...');
+            fusionController.stop();
+            fusionController.start();
+            results.fusion.success = true;
+            results.fusion.devices = fusionController.getAvailableDevices();
+          } catch (error) {
+            results.fusion.error = error.message;
+          }
+        }
+
+        res.json({
+          message: 'Rediscovery initiated',
+          results
+        });
       } catch (error) {
         res.status(500).json({ error: error.message });
       }
@@ -540,6 +624,27 @@ module.exports = function(app) {
     if (!pair) return;
 
     sonosController.adjustVolume(pair.sonosDevice, volumeChange);
+  }
+
+  function getNetworkDiagnostics() {
+    const interfaces = os.networkInterfaces();
+    const networkInfo = {
+      hostname: os.hostname(),
+      platform: os.platform(),
+      interfaces: {}
+    };
+
+    Object.keys(interfaces).forEach(name => {
+      networkInfo.interfaces[name] = interfaces[name].map(iface => ({
+        address: iface.address,
+        netmask: iface.netmask,
+        family: iface.family,
+        mac: iface.mac,
+        internal: iface.internal
+      }));
+    });
+
+    return networkInfo;
   }
 
   return plugin;
