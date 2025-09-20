@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sonos-Fusion Integration</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .header {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+        }
+        .status-card {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .device-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .device-card {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+            background: white;
+        }
+        .device-card.online {
+            border-left: 4px solid #28a745;
+        }
+        .device-card.offline {
+            border-left: 4px solid #dc3545;
+        }
+        .pair-section {
+            margin-bottom: 30px;
+        }
+        .pair-card {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 15px;
+            background: white;
+        }
+        .pair-card.enabled {
+            border-left: 4px solid #007bff;
+        }
+        .pair-card.disabled {
+            border-left: 4px solid #6c757d;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-control {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 6px;
+            width: 80%;
+            max-width: 500px;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover {
+            color: black;
+        }
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-online {
+            background-color: #28a745;
+        }
+        .status-offline {
+            background-color: #dc3545;
+        }
+        .status-warning {
+            background-color: #ffc107;
+        }
+        .tab-container {
+            margin-bottom: 20px;
+        }
+        .tab-buttons {
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+        }
+        .tab-button {
+            background: none;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+        .tab-button.active {
+            border-bottom-color: #007bff;
+            color: #007bff;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Sonos-Fusion Integration</h1>
+            <p>Manage your Sonos Port and Fusion Audio device pairs</p>
+        </div>
+
+        <div class="status-card">
+            <h3>Plugin Status</h3>
+            <p><span class="status-indicator" id="pluginStatus"></span><span id="pluginStatusText">Loading...</span></p>
+            <p id="pluginDetails"></p>
+        </div>
+
+        <div class="tab-container">
+            <div class="tab-buttons">
+                <button class="tab-button active" onclick="showTab('overview')">Overview</button>
+                <button class="tab-button" onclick="showTab('devices')">Devices</button>
+                <button class="tab-button" onclick="showTab('pairs')">Device Pairs</button>
+                <button class="tab-button" onclick="showTab('diagnostics')">Diagnostics</button>
+            </div>
+
+            <div id="overview" class="tab-content active">
+                <h3>System Overview</h3>
+                <div id="overviewStats"></div>
+                <div id="recentActivity"></div>
+            </div>
+
+            <div id="devices" class="tab-content">
+                <h3>Discovered Devices</h3>
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="refreshDevices()">Refresh Devices</button>
+                </div>
+
+                <div id="sonosDevices">
+                    <h4>Sonos Devices</h4>
+                    <div id="sonosDeviceList" class="device-grid"></div>
+                </div>
+
+                <div id="fusionDevices">
+                    <h4>Fusion Audio Devices</h4>
+                    <div id="fusionDeviceList" class="device-grid"></div>
+                </div>
+            </div>
+
+            <div id="pairs" class="tab-content">
+                <h3>Device Pairs</h3>
+                <div class="controls">
+                    <button class="btn btn-success" onclick="showAddPairModal()">Add New Pair</button>
+                    <button class="btn btn-secondary" onclick="exportConfig()">Export Config</button>
+                    <button class="btn btn-secondary" onclick="showImportModal()">Import Config</button>
+                </div>
+
+                <div id="pairsList" class="pair-section"></div>
+            </div>
+
+            <div id="diagnostics" class="tab-content">
+                <h3>Diagnostics</h3>
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="refreshDiagnostics()">Refresh</button>
+                </div>
+                <pre id="diagnosticsData"></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Pair Modal -->
+    <div id="addPairModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('addPairModal')">&times;</span>
+            <h3>Add Device Pair</h3>
+            <form id="addPairForm">
+                <div class="form-group">
+                    <label class="form-label">Pair Name</label>
+                    <input type="text" class="form-control" id="pairName" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Sonos Device</label>
+                    <select class="form-control" id="sonosDevice" required></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Fusion Device</label>
+                    <select class="form-control" id="fusionDevice" required></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Fusion Input</label>
+                    <select class="form-control" id="fusionInput" required>
+                        <option value="aux1">AUX 1</option>
+                        <option value="aux2">AUX 2</option>
+                        <option value="aux3">AUX 3</option>
+                        <option value="usb">USB</option>
+                        <option value="bluetooth">Bluetooth</option>
+                        <option value="am">AM Radio</option>
+                        <option value="fm">FM Radio</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="volumeSync" checked> Enable Volume Synchronization
+                    </label>
+                </div>
+                <div class="controls">
+                    <button type="submit" class="btn btn-success">Add Pair</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('addPairModal')">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Import Config Modal -->
+    <div id="importModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('importModal')">&times;</span>
+            <h3>Import Configuration</h3>
+            <div class="form-group">
+                <label class="form-label">Configuration JSON</label>
+                <textarea class="form-control" id="importData" rows="10"></textarea>
+            </div>
+            <div class="controls">
+                <button class="btn btn-success" onclick="importConfig()">Import</button>
+                <button class="btn btn-secondary" onclick="closeModal('importModal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
