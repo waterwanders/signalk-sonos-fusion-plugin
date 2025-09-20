@@ -18,7 +18,7 @@
     "node": ">=14.0.0"
   },
   "dependencies": {
-    "node-sonos": "^1.15.0",
+    "@svrooij/sonos": "^2.5.0",
     "axios": "^1.6.0",
     "ws": "^8.14.0",
     "bonjour": "^3.5.0",

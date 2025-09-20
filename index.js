@@ -106,7 +106,7 @@ module.exports = function(app) {
     }
   };
 
-  plugin.start = function(options) {
+  plugin.start = async function(options) {
     app.debug('Starting Sonos-Fusion plugin with options:', options);
 
     try {
@@ -127,6 +127,9 @@ module.exports = function(app) {
       nmea2000Handler.on('volumeControl', handleNMEAVolumeControl);
 
       deviceManager.start();
+      fusionController.start();
+      await sonosController.start();
+      nmea2000Handler.start();
 
       app.setPluginStatus('Started successfully');
     } catch (error) {
