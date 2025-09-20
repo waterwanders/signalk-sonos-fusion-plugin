@@ -167,6 +167,253 @@ module.exports = function(app) {
     app.setPluginStatus('Stopped');
   };
 
+  plugin.registerWithRouter = function(router) {
+    app.debug('Registering Sonos-Fusion plugin REST endpoints');
+
+    // Plugin status endpoint
+    router.get('/status', (req, res) => {
+      try {
+        const status = {
+          enabled: deviceManager !== null,
+          activePairs: deviceManager ? deviceManager.getEnabledPairs().length : 0,
+          totalDevices: {
+            sonos: sonosController ? sonosController.getAvailableDevices().length : 0,
+            fusion: fusionController ? fusionController.getAvailableDevices().length : 0
+          }
+        };
+        res.json(status);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Device discovery endpoints
+    router.get('/devices/sonos', (req, res) => {
+      try {
+        const devices = sonosController ? sonosController.getAvailableDevices() : [];
+        res.json(devices);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    router.get('/devices/fusion', (req, res) => {
+      try {
+        const devices = fusionController ? fusionController.getAvailableDevices() : [];
+        res.json(devices);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Device pairs management
+    router.get('/pairs', (req, res) => {
+      try {
+        const pairs = deviceManager ? deviceManager.getAllPairs() : [];
+        res.json(pairs);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    router.post('/pairs', (req, res) => {
+      try {
+        if (!deviceManager) {
+          return res.status(503).json({ error: 'Plugin not started' });
+        }
+
+        const pairConfig = req.body;
+
+        // Validate the configuration
+        if (!deviceManager.validatePairConfig(pairConfig)) {
+          return res.status(400).json({ error: 'Invalid pair configuration' });
+        }
+
+        // Check for conflicts
+        const validation = deviceManager.validateDeviceAssociation(
+          pairConfig.sonosDevice,
+          pairConfig.fusionDevice
+        );
+
+        if (!validation.valid) {
+          return res.status(409).json({
+            error: 'Device association conflict',
+            conflicts: validation.conflicts
+          });
+        }
+
+        deviceManager.addDevicePair(pairConfig);
+        res.status(201).json({ message: 'Device pair created successfully' });
+
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    router.patch('/pairs/:pairName', (req, res) => {
+      try {
+        if (!deviceManager) {
+          return res.status(503).json({ error: 'Plugin not started' });
+        }
+
+        const { pairName } = req.params;
+        const updates = req.body;
+
+        const pair = deviceManager.getPairByName(pairName);
+        if (!pair) {
+          return res.status(404).json({ error: 'Device pair not found' });
+        }
+
+        deviceManager.updateDevicePair(pairName, updates);
+        res.json({ message: 'Device pair updated successfully' });
+
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    router.delete('/pairs/:pairName', (req, res) => {
+      try {
+        if (!deviceManager) {
+          return res.status(503).json({ error: 'Plugin not started' });
+        }
+
+        const { pairName } = req.params;
+
+        const pair = deviceManager.getPairByName(pairName);
+        if (!pair) {
+          return res.status(404).json({ error: 'Device pair not found' });
+        }
+
+        deviceManager.removeDevicePair(pairName);
+        res.json({ message: 'Device pair deleted successfully' });
+
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    router.post('/pairs/:pairName/test', async (req, res) => {
+      try {
+        if (!deviceManager || !sonosController || !fusionController) {
+          return res.status(503).json({ error: 'Plugin not started' });
+        }
+
+        const { pairName } = req.params;
+        const pair = deviceManager.getPairByName(pairName);
+
+        if (!pair) {
+          return res.status(404).json({ error: 'Device pair not found' });
+        }
+
+        // Test both device connections
+        const [sonosState, fusionConnected] = await Promise.all([
+          sonosController.getPlaybackState(pair.sonosDevice),
+          fusionController.testConnection(pair.fusionDevice)
+        ]);
+
+        const testResult = {
+          success: sonosState !== null && fusionConnected,
+          sonos: {
+            connected: sonosState !== null,
+            state: sonosState
+          },
+          fusion: {
+            connected: fusionConnected
+          }
+        };
+
+        if (!testResult.success) {
+          testResult.error = 'One or more devices are not responding';
+        }
+
+        res.json(testResult);
+
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          error: error.message
+        });
+      }
+    });
+
+    // System information endpoints
+    router.get('/overview', (req, res) => {
+      try {
+        const overview = {
+          stats: deviceManager ? deviceManager.getDeviceStatistics() : {
+            totalPairs: 0,
+            enabledPairs: 0,
+            activePairs: 0,
+            recentActivity: []
+          },
+          sonosDevices: sonosController ? sonosController.getAvailableDevices().length : 0,
+          fusionDevices: fusionController ? fusionController.getAvailableDevices().length : 0
+        };
+        res.json(overview);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    router.get('/diagnostics', (req, res) => {
+      try {
+        const diagnostics = {
+          plugin: {
+            status: deviceManager !== null ? 'running' : 'stopped',
+            version: '1.0.0'
+          },
+          deviceManager: deviceManager ? deviceManager.getDiagnostics() : null,
+          controllers: {
+            sonos: {
+              started: sonosController !== null,
+              deviceCount: sonosController ? sonosController.getAvailableDevices().length : 0
+            },
+            fusion: {
+              started: fusionController !== null,
+              deviceCount: fusionController ? fusionController.getAvailableDevices().length : 0
+            },
+            nmea2000: {
+              enabled: nmea2000Handler !== null
+            }
+          }
+        };
+        res.json(diagnostics);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Configuration export/import
+    router.get('/export', (req, res) => {
+      try {
+        if (!deviceManager) {
+          return res.status(503).json({ error: 'Plugin not started' });
+        }
+
+        const config = deviceManager.exportConfiguration();
+        res.json(config);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    router.post('/import', (req, res) => {
+      try {
+        if (!deviceManager) {
+          return res.status(503).json({ error: 'Plugin not started' });
+        }
+
+        const config = req.body;
+        deviceManager.importConfiguration(config);
+        res.json({ message: 'Configuration imported successfully' });
+
+      } catch (error) {
+        res.status(400).json({ error: error.message });
+      }
+    });
+  };
+
   function handleDevicePairReady(pair) {
     app.debug(`Device pair ready: ${pair.name}`);
 
