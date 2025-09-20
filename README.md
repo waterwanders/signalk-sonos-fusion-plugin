@@ -18,14 +18,14 @@ A SignalK plugin that seamlessly integrates Sonos Port devices with Fusion Audio
 
 1. Open SignalK server admin interface
 2. Navigate to "Server" → "Plugin Config"
-3. Search for "signalk-sonos-fusion-plugin"
+3. Search for "signalk-sonos-fusion"
 4. Click "Install"
 
 ### Manual Installation
 
 ```bash
 cd /opt/signalk-server/
-npm install signalk-sonos-fusion-plugin
+npm install @waterwanders/signalk-sonos-fusion
 ```
 
 ## Configuration
@@ -97,7 +97,7 @@ Each device pair represents a Sonos Port connected to a Fusion Audio device:
 
 ### Web Interface
 
-Access the plugin web interface at: `http://your-signalk-server/plugins/signalk-sonos-fusion-plugin`
+Access the plugin web interface at: `http://your-signalk-server/plugins/sonos-fusion`
 
 The interface provides:
 
@@ -137,20 +137,20 @@ The plugin provides a REST API for programmatic control:
 
 ```bash
 # Get discovered Sonos devices
-GET /plugins/signalk-sonos-fusion-plugin/devices/sonos
+GET /plugins/sonos-fusion/devices/sonos
 
 # Get discovered Fusion devices
-GET /plugins/signalk-sonos-fusion-plugin/devices/fusion
+GET /plugins/sonos-fusion/devices/fusion
 ```
 
 ### Pair Management
 
 ```bash
 # Get all device pairs
-GET /plugins/signalk-sonos-fusion-plugin/pairs
+GET /plugins/sonos-fusion/pairs
 
 # Create new device pair
-POST /plugins/signalk-sonos-fusion-plugin/pairs
+POST /plugins/sonos-fusion/pairs
 Content-Type: application/json
 {
   "name": "Cockpit",
@@ -161,34 +161,34 @@ Content-Type: application/json
 }
 
 # Update device pair
-PATCH /plugins/signalk-sonos-fusion-plugin/pairs/{pairName}
+PATCH /plugins/sonos-fusion/pairs/{pairName}
 Content-Type: application/json
 { "enabled": false }
 
 # Delete device pair
-DELETE /plugins/signalk-sonos-fusion-plugin/pairs/{pairName}
+DELETE /plugins/sonos-fusion/pairs/{pairName}
 
 # Test device pair connection
-POST /plugins/signalk-sonos-fusion-plugin/pairs/{pairName}/test
+POST /plugins/sonos-fusion/pairs/{pairName}/test
 ```
 
 ### System Information
 
 ```bash
 # Get plugin status
-GET /plugins/signalk-sonos-fusion-plugin/status
+GET /plugins/sonos-fusion/status
 
 # Get system overview
-GET /plugins/signalk-sonos-fusion-plugin/overview
+GET /plugins/sonos-fusion/overview
 
 # Get diagnostics
-GET /plugins/signalk-sonos-fusion-plugin/diagnostics
+GET /plugins/sonos-fusion/diagnostics
 
 # Export configuration
-GET /plugins/signalk-sonos-fusion-plugin/export
+GET /plugins/sonos-fusion/export
 
 # Import configuration
-POST /plugins/signalk-sonos-fusion-plugin/import
+POST /plugins/sonos-fusion/import
 Content-Type: application/json
 {
   "devicePairs": [...]
@@ -243,7 +243,7 @@ vessels.self.entertainment.audio.{pairName}.currentTrack.duration
 Use the diagnostics page in the web interface or API endpoint to get detailed system information:
 
 ```bash
-curl http://your-signalk-server/plugins/signalk-sonos-fusion-plugin/diagnostics
+curl http://your-signalk-server/plugins/sonos-fusion/diagnostics
 ```
 
 ### Log Files
@@ -259,7 +259,7 @@ tail -f /var/log/signalk/signalk.log | grep sonos-fusion
 ### Building from Source
 
 ```bash
-git clone https://github.com/wandertracks/signalk-sonos-fusion-plugin.git
+git clone https://github.com/waterwanders/signalk-sonos-fusion-plugin.git
 cd signalk-sonos-fusion-plugin
 npm install
 npm test

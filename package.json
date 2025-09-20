@@ -12,7 +12,7 @@
     "audio",
     "nmea2000"
   ],
-  "author": "WanderTracks",
+  "author": "Water Wanders, LLC",
   "license": "MIT",
   "engines": {
     "node": ">=14.0.0"

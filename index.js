@@ -12,8 +12,8 @@ module.exports = function(app) {
   let nmea2000Handler;
   let unsubscribes = [];
 
-  plugin.id = 'signalk-sonos-fusion-plugin';
-  plugin.name = 'Sonos-Fusion Integration';
+  plugin.id = 'sonos-fusion';
+  plugin.name = 'Sonos/Fusion Integration';
   plugin.description = 'Integrates Sonos Port with Fusion Audio amplifiers for marine audio control';
 
   plugin.schema = {
